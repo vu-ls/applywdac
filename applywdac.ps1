@@ -35,7 +35,11 @@
 #>
 Param([string]$xmlpolicy, [switch]$enforce, [switch]$auto)
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
+try{
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+} catch {
+  throw "This PowerShell instance is probably running in constrained mode. You will not be able to make WDAC changes."
+}
 
 function ApplyWDACPolicy {
   Param([string]$xmlpolicy, [switch]$enforce, [switch]$auto)
