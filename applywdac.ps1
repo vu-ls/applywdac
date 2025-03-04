@@ -93,6 +93,22 @@ function ApplyWDACPolicy {
     Copy-Item -path $xmlpolicy -Destination $xmloutput -PassThru | Set-ItemProperty -name isreadonly -Value $false
 
     [xml]$Xml = Get-Content "$xmloutput"
+    # Retrieve the namespace (needed for WDAC policies)
+    $namespaceURI = $Xml.DocumentElement.NamespaceURI
+
+    # Set up an XML namespace manager
+    $namespace = New-Object System.Xml.XmlNamespaceManager($Xml.NameTable)
+    $namespace.AddNamespace("ns", $namespaceURI)
+
+    # Perform a namespace-aware XPath query
+    $auditModeEnabled = $Xml.SelectNodes("//ns:Rules/ns:Rule/ns:Option[text()='Enabled:Audit Mode']", $namespace)
+
+    if ($auditModeEnabled.Count -gt 0) {
+        $auditmode = 1
+    } else {
+        $auditmode = 0
+    }
+
     If ( $xml.SiPolicy.PolicyTypeID ) {
       Write-Output "Legacy XML format detected"
       If ([System.Environment]::OSVersion.Version.Build -eq 14393) {
@@ -110,7 +126,7 @@ function ApplyWDACPolicy {
       }
       If ([System.Environment]::OSVersion.Version.Build -le 18362.900) {
         # Install on system that doesn't support multi-policy
-        if ($enforce) {
+        if ($enforce -or ($auditmode -eq 0)) {
           Set-RuleOption -FilePath "$xmloutput" -Option 3 -Delete
         }
         else {
@@ -130,7 +146,7 @@ function ApplyWDACPolicy {
       else {
         # Install on system that does support multi-policy
         $policytypeid = $xml.SiPolicy.PolicyTypeID
-        if ($enforce) {
+        if ($enforce -or ($auditmode -eq 0)) {
           Set-RuleOption -FilePath "$xmloutput" -Option 3 -Delete
         }
         else {
@@ -152,7 +168,7 @@ function ApplyWDACPolicy {
       else {
         # Install on system that does support multi-policy
         $policytypeid = $xml.SiPolicy.PolicyID
-        if ($enforce) {
+        if ($enforce -or ($auditmode -eq 0)) {
           Set-RuleOption -FilePath "$xmloutput" -Option 3 -Delete
         }
         else {
